@@ -7,4 +7,5 @@ if [[ -z "$CODEX_USAGE_CLI" ]]; then
 fi
 "$CODEX_USAGE_CLI" plugin marketplace add "$TASK_DIR"
 "$CODEX_USAGE_CLI" plugin add codex-usage-monitor@codex-usage-local
-print '安装完成。请打开新聊天并输入：打开 Codex 用量面板。'
+/usr/bin/python3 "$TASK_DIR/scripts/install_native.py"
+print '安装完成。原生面板将随 Codex 启动自动打开。'

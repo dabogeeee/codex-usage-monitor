@@ -3,15 +3,15 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import datetime
 from pathlib import Path
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "plugins/codex-usage-monitor"))
 from usage import LocalUsage, Monitor, RpcError, official_usage, percentage, quota_bucket
-from server import Dashboard, UI_RESOURCE, mcp_reply
+from native_mcp import mcp_reply
+from native_bridge import validated_request
 
 
 def meta(ident="chat-a", source="vscode", fork=None):
@@ -145,41 +145,34 @@ class FakeMonitor:
 
 
 class TransportTest(unittest.TestCase):
-    def test_embedded_resource_is_self_contained(self):
-        reply = mcp_reply({"id": 1, "method": "resources/read", "params": {"uri": UI_RESOURCE}}, FakeMonitor(), None)
-        html = reply["result"]["contents"][0]["text"]
-        self.assertIn("window.__CODEX_USAGE_MCP__=true", html)
-        self.assertNotIn('src="/app.js"', html)
-        self.assertNotIn('href="/style.css"', html)
+    def test_native_command_opens_app_without_browser_url(self):
+        with patch("native_mcp.open_native_panel", return_value={"native": True, "applicationPath": "/Applications/CodexUsage.app", "notice": "opened"}) as opened:
+            result = mcp_reply({"id": 1, "method": "tools/call", "params": {"name": "open_usage_dashboard", "arguments": {}}}, FakeMonitor())
+            self.assertTrue(result["result"]["structuredContent"]["native"])
+            self.assertNotIn("url", result["result"]["structuredContent"])
+            opened.assert_called_once()
+
+    def test_native_pipe_rejects_invalid_requests(self):
+        self.assertEqual(validated_request({"thread_id": "chat-a", "request_id": 2}), ("chat-a", 2))
+        self.assertEqual(validated_request({"thread_id": None}), (None, 0))
+        for request in [{"thread_id": "../../secret"}, {"request_id": True}, {"request_id": -1}, {"command": "open"}, []]:
+            self.assertIsNone(validated_request(request))
+    def test_native_mcp_does_not_advertise_web_resources(self):
+        result = mcp_reply({"id": 1, "method": "initialize", "params": {}}, FakeMonitor())
+        self.assertNotIn("resources", result["result"]["capabilities"])
+        result = mcp_reply({"id": 2, "method": "resources/list"}, FakeMonitor())
+        self.assertEqual(result["error"]["code"], -32601)
 
     def test_mcp_schema_and_unknown_arguments(self):
         monitor = FakeMonitor()
-        data = mcp_reply({"id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}}, monitor, None)
+        data = mcp_reply({"id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}}, monitor)
         self.assertEqual(data["result"]["protocolVersion"], "2025-06-18")
-        self.assertIsNone(mcp_reply({"method": "notifications/initialized"}, monitor, None))
-        data = mcp_reply({"id": 2, "method": "tools/call", "params": {"name": "get_usage_snapshot", "arguments": {"thread_id": "x"}}}, monitor, None)
+        self.assertIsNone(mcp_reply({"method": "notifications/initialized"}, monitor))
+        data = mcp_reply({"id": 2, "method": "tools/call", "params": {"name": "get_usage_snapshot", "arguments": {"thread_id": "x"}}}, monitor)
         self.assertEqual(data["result"]["structuredContent"]["local"]["thread"], "x")
-        invalid = mcp_reply({"id": 2, "method": "tools/call", "params": {"name": "get_usage_snapshot", "arguments": {"thread_id": "../../secret"}}}, monitor, None)
+        invalid = mcp_reply({"id": 2, "method": "tools/call", "params": {"name": "get_usage_snapshot", "arguments": {"thread_id": "../../secret"}}}, monitor)
         self.assertEqual(invalid["error"]["code"], -32602)
 
-    def test_http_requires_capability_and_rejects_other_origins_and_hosts(self):
-        dashboard = Dashboard(FakeMonitor(), 0)
-        try:
-            url = dashboard.start().split("/#")[0]
-            with urlopen(url + "/health") as response:
-                self.assertEqual(response.status, 200)
-            with self.assertRaises(HTTPError) as caught:
-                urlopen(url + "/api/snapshot")
-            self.assertEqual(caught.exception.code, 401)
-            headers = {"Authorization": "Bearer " + dashboard.token}
-            with urlopen(Request(url + "/api/snapshot?thread=x", headers=headers)) as response:
-                self.assertEqual(json.load(response)["local"]["thread"], "x")
-            for extra in ({"Origin": "https://example.com"}, {"Host": "attacker.example"}):
-                with self.assertRaises(HTTPError) as caught:
-                    urlopen(Request(url + "/api/snapshot", headers=dict(headers, **extra)))
-                self.assertEqual(caught.exception.code, 403)
-        finally:
-            dashboard.close()
 
 
 if __name__ == "__main__":

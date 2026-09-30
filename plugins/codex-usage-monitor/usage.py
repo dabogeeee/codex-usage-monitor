@@ -270,7 +270,7 @@ class CodexRpc:
             finally:
                 messages.put(None)
         threading.Thread(target=reader, args=(self.proc, self.messages), daemon=True).start()
-        self.call("initialize", {"clientInfo": {"name": "codex_usage_monitor", "title": "Codex 用量面板", "version": "0.1.0"},
+        self.call("initialize", {"clientInfo": {"name": "codex_usage_monitor", "title": "Codex 用量面板", "version": "0.2.0"},
                                  "capabilities": {"experimentalApi": True}})
         self.proc.stdin.write('{"method":"initialized"}\n')
         self.proc.stdin.flush()

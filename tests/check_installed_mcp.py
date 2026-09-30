@@ -5,12 +5,12 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from urllib.parse import urlsplit, parse_qs
-from urllib.request import Request, urlopen
 
 
 def main():
-    root = Path.home() / ".codex/plugins/cache/codex-usage-local/codex-usage-monitor/0.1.0"
+    project = Path(__file__).resolve().parents[1]
+    version = json.loads((project / 'plugins/codex-usage-monitor/plugin.json').read_text())['version']
+    root = Path.home() / (".codex/plugins/cache/codex-usage-local/codex-usage-monitor/" + version)
     config = json.loads((root / "mcp.json").read_text())["mcpServers"]["usage-monitor"]
     proc = subprocess.Popen([config["command"], *config["args"]], cwd=root / config["cwd"],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -42,14 +42,11 @@ def main():
         proc.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
         proc.stdin.flush()
         assert len(request("tools/list", {})["result"]["tools"]) == 2
-        uri = request("resources/list", {})["result"]["resources"][0]["uri"]
-        assert "window.__CODEX_USAGE_MCP__=true" in request("resources/read", {"uri": uri})["result"]["contents"][0]["text"]
+        assert "resources" not in result["result"]["capabilities"]
         opened = request("tools/call", {"name": "open_usage_dashboard", "arguments": {}})["result"]["structuredContent"]
-        parsed = urlsplit(opened["url"])
-        key = parse_qs(parsed.fragment)["key"][0]
-        base = parsed.scheme + "://" + parsed.netloc
-        with urlopen(Request(base + "/api/snapshot", headers={"Authorization": "Bearer " + key})) as response:
-            data = json.load(response)
+        assert opened['native'] is True and 'url' not in opened
+        assert Path(opened['applicationPath']).is_dir()
+        data = request("tools/call", {"name": "get_usage_snapshot", "arguments": {}})["result"]["structuredContent"]
         deadline = time.monotonic() + 25
         while data["account"]["status"] == "loading" and time.monotonic() < deadline:
             time.sleep(0.25)
@@ -60,7 +57,7 @@ def main():
         assert data["local"]["totals"]["today"] > 0
         print(json.dumps({"installedMcp": True, "authPlan": data["account"]["planType"],
                           "officialUsageAvailable": data["account"]["usage"] is not None,
-                          "panelHttp": True, "uiResource": True, "localChatMetrics": True}))
+                          "nativePanelOpened": True, "webResourcesRemoved": True, "localChatMetrics": True}))
     finally:
         proc.stdin.close()
         try:
