@@ -1,0 +1,37 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const {chromium} = require(process.env.CODEX_USAGE_PLAYWRIGHT || path.join(os.homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));
+
+(async () => {
+  const url = process.argv[2];
+  if (!url?.startsWith('http://127.0.0.1:')) throw new Error('Pass the local launch URL');
+  fs.mkdirSync(path.resolve(__dirname, '../.runtime'), {recursive: true});
+  const browser = await chromium.launch({headless:true, executablePath:process.env.CODEX_USAGE_BROWSER || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  const page = await browser.newPage({viewport:{width:420, height:1280}});
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto(url);
+  await page.waitForFunction(() => document.getElementById('today').textContent !== '—');
+  await page.waitForFunction(() => document.getElementById('plan').textContent !== '未识别账户', {timeout:20000});
+  await page.screenshot({path:path.resolve(__dirname, '../.runtime/dashboard.png'), fullPage:true});
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  if (overflow) throw new Error('Horizontal overflow at 420px');
+  await page.setViewportSize({width:320, height:1200});
+  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Horizontal overflow at 320px');
+  const selected = await page.locator('#thread option').nth(2).getAttribute('value');
+  await page.selectOption('#thread', selected);
+  await page.waitForFunction(() => document.getElementById('thread-title').textContent !== '正在读取所选聊天…');
+  if (await page.locator('#selection-mode').textContent() !== '手动选择') throw new Error('Thread selection did not update');
+  await page.selectOption('#scope', 'official');
+  if (!(await page.locator('#source-note').textContent()).includes('官方')) throw new Error('Official view did not update');
+  await page.selectOption('#scope', 'local');
+  await page.selectOption('#thread', '');
+  await page.click('#compact');
+  if (!(await page.locator('body').getAttribute('class')).includes('compact')) throw new Error('Compact view did not update');
+  await page.emulateMedia({colorScheme:'dark'});
+  await page.screenshot({path:path.resolve(__dirname, '../.runtime/dashboard-dark-compact.png'), fullPage:true});
+  if (errors.length) throw new Error(errors.join('\n'));
+  console.log(JSON.stringify({browserErrors:errors, horizontalOverflow:false, tested:['320px','420px','chat selection','official/local switch','compact view','dark mode']}));
+  await browser.close();
+})().catch(error => { console.error(error.message); process.exitCode = 1; });

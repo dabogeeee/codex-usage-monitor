@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Codex 用量面板</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><span class="logo" aria-hidden="true">↗</span><div><h1>Codex 用量</h1><p>用量、额度与聊天状态</p></div></div>
+    <span id="plan" class="badge">识别账户中</span>
+  </header>
+  <div class="status-row"><span id="connection"><i class="dot"></i>正在连接</span><button id="refresh" class="quiet" type="button">刷新 ↻</button></div>
+  <div id="error" class="notice error" hidden role="alert"></div>
+
+  <section aria-labelledby="quota-title">
+    <div class="section-heading"><h2 id="quota-title">剩余额度</h2><span id="quota-updated" class="muted"></span></div>
+    <div id="quotas"><p class="muted">正在读取官方额度…</p></div>
+    <details id="extra-quotas" hidden><summary>其他额度窗口</summary><div id="extra-quota-content"></div></details>
+    <p class="footnote">百分比为账号可用额度；重置后以官方返回值为准。</p>
+  </section>
+
+  <section aria-labelledby="tokens-title">
+    <div class="section-heading"><h2 id="tokens-title">Token 用量</h2>
+      <select id="scope" aria-label="统计来源"><option value="local">本机实时</option><option value="official">账号官方</option></select>
+    </div>
+    <div class="stats" id="stats">
+      <div class="stat"><span>今日</span><strong id="today">—</strong><small>tokens</small></div>
+      <div class="stat"><span>本周</span><strong id="week">—</strong><small>tokens</small></div>
+      <div class="stat"><span>本月</span><strong id="month">—</strong><small>tokens</small></div>
+      <div class="stat"><span>累计</span><strong id="all">—</strong><small>tokens</small></div>
+    </div>
+    <div class="chart-head"><span>最近 14 天</span><span id="chart-date" class="muted"></span></div>
+    <div id="chart" class="chart" aria-label="最近十四天每日 token 用量"></div>
+    <p id="source-note" class="footnote"></p>
+  </section>
+
+  <section aria-labelledby="chat-title">
+    <div class="section-heading"><h2 id="chat-title">聊天状态</h2><span id="selection-mode" class="badge small">最近活动</span></div>
+    <label for="thread" class="sr-only">选择聊天</label><select id="thread" class="thread-select"><option value="">跟随最近有活动的聊天</option></select>
+    <div class="chat-label"><strong id="thread-title">等待聊天记录</strong><span id="model" class="muted"></span></div>
+    <div class="metric">
+      <div class="metric-heading"><span>缓存命中率 <small>最近请求</small></span><strong id="cache">—</strong></div>
+      <meter id="cache-meter" min="0" max="100" value="0" aria-label="缓存命中率"></meter>
+      <p id="cache-detail" class="footnote">缓存输入 tokens ÷ 输入 tokens</p>
+    </div>
+    <div class="metric">
+      <div class="metric-heading"><span>上下文占用 <small>最近请求估算</small></span><strong id="context">—</strong></div>
+      <meter id="context-meter" min="0" max="100" value="0" aria-label="上下文占用率"></meter>
+      <p id="context-detail" class="footnote">最近请求 tokens ÷ 日志记录的上下文上限</p>
+    </div>
+    <p id="thread-updated" class="footnote"></p>
+    <details class="explanation"><summary>切换聊天与指标说明</summary>
+      <p>“最近活动”跟随最新产生 token 记录的普通聊天。桌面端切换到没有新活动的聊天时，请在上方选择聊天；插件无法读取桌面端的选中状态。</p>
+      <p>缓存命中率是最近一次请求的缓存输入与总输入之比；累计命中率按输入 token 加权。0% 是确实未命中，— 表示没有可用数据。</p>
+      <p>上下文占用是最近请求的输入加输出与日志中有效上下文上限之比。它是估算，生成期间及压缩后可能与原生界面存在差异。</p>
+    </details>
+  </section>
+  <footer><span>本机运行 · 不上传会话内容</span><button id="compact" class="quiet" type="button">精简视图</button></footer>
+</main>
+</body>
+</html>

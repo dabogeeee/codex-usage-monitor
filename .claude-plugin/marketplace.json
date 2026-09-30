@@ -1,0 +1,12 @@
+{
+  "name": "codex-usage-local",
+  "interface": {"displayName": "Codex 用量工具"},
+  "plugins": [
+    {
+      "name": "codex-usage-monitor",
+      "source": {"source": "local", "path": "./plugins/codex-usage-monitor"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Productivity"
+    }
+  ]
+}
