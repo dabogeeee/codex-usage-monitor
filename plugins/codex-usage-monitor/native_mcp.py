@@ -10,9 +10,10 @@ import sys
 from pathlib import Path
 
 from usage import Monitor
+from desktop_selection import read_desktop_selection
 
 ROOT = Path(__file__).resolve().parent
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 
 def valid_thread(value):
@@ -31,6 +32,11 @@ def open_native_panel():
 
 
 TOOLS = [
+    {"name": "get_desktop_selection", "title": "读取桌面当前聊天 UUID",
+     "description": "读取原生面板通过 macOS 辅助功能识别的桌面当前聊天 UUID。需要用户授予面板辅助功能权限并让原生面板运行。仅返回 UUID、来源、状态与更新时间；无法识别时返回 null，不使用最近活动猜测。",
+     "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+     "outputSchema": {"type": "object", "properties": {"status": {"type": "string"}, "threadId": {"type": ["string", "null"]}, "hostKind": {"type": ["string", "null"]}, "updatedAt": {"type": ["string", "null"]}}, "required": ["status", "threadId", "hostKind", "updatedAt"]},
+     "annotations": {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False, "idempotentHint": True}},
     {"name": "get_usage_snapshot", "title": "读取 Codex 用量",
      "description": "读取本机每日/周/月/累计 tokens、账号官方额度及汇总、聊天缓存命中率和最近请求上下文估算。thread_id 省略时使用最近产生用量记录的普通聊天，不能称为桌面端当前选中聊天。官方汇总可能延迟。",
      "inputSchema": {"type": "object", "properties": {"thread_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$"}}, "additionalProperties": False},
@@ -70,7 +76,11 @@ def mcp_reply(request, monitor):
         arguments = params.get("arguments", {})
         if not isinstance(arguments, dict):
             return error(-32602, "Arguments must be an object")
-        if params.get("name") == "get_usage_snapshot":
+        if params.get("name") == "get_desktop_selection":
+            if arguments:
+                return error(-32602, "This tool accepts no arguments")
+            data = read_desktop_selection()
+        elif params.get("name") == "get_usage_snapshot":
             thread_id = arguments.get("thread_id")
             if set(arguments) - {"thread_id"} or not valid_thread(thread_id):
                 return error(-32602, "Invalid arguments")

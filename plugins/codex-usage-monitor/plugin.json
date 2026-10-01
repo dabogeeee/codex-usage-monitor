@@ -1,14 +1,14 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-usage-monitor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "本机 Codex token 统计、账号剩余额度、每个聊天的缓存命中率与上下文占用估算。",
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "Codex 用量面板",
         "shortDescription": "查看 tokens、剩余额度和聊天上下文",
-        "longDescription": "macOS 原生悬浮面板与菜单栏额度，随 Codex 启动自动打开。支持每日、每周、每月、累计 token；Plus 显示 5 小时及一周剩余额度，Pro 默认显示一周；按聊天查看缓存命中率与最近请求上下文估算。",
+        "longDescription": "macOS 原生悬浮面板与菜单栏用量，随 Codex 启动自动打开。支持每日、每周、每月、累计 token；Plus 显示 5 小时及一周剩余额度，Pro 默认显示一周；获得辅助功能权限后读取桌面当前聊天 UUID。菜单栏可选择余额、缓存与上下文或全部。",
         "category": "Productivity",
         "capabilities": ["Read"],
         "defaultPrompt": ["打开 Codex 用量面板", "查看当前 Codex 额度和 token 用量"]

@@ -22,13 +22,13 @@ def main():
     sdk = os.environ.get("CODEX_USAGE_SWIFT_SDK", "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk")
     subprocess.run(["/usr/bin/swiftc", "-swift-version", "5", "-parse-as-library", "-O",
                     "-sdk", sdk, "-target", "arm64-apple-macosx14.0", "-module-cache-path", str(cache),
-                    str(ROOT / "native/CodexUsage.swift"), "-o", str(executable)], check=True)
+                    str(ROOT / "native/CodexUsage.swift"), str(ROOT / "native/DesktopSelection.swift"), "-o", str(executable)], check=True)
     for name in ("usage.py", "native_bridge.py"):
         shutil.copy2(PLUGIN / name, backend / name)
     info = {"CFBundleIdentifier": "com.codexusage.monitor", "CFBundleName": "CodexUsage",
             "CFBundleDisplayName": "Codex 用量面板", "CFBundleExecutable": "CodexUsage",
-            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.2.0",
-            "CFBundleVersion": "2", "LSMinimumSystemVersion": "14.0", "LSUIElement": True,
+            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.3.0",
+            "CFBundleVersion": "3", "LSMinimumSystemVersion": "14.0", "LSUIElement": True,
             "LSMultipleInstancesProhibited": True, "NSHighResolutionCapable": True,
             "NSHumanReadableCopyright": "Local Codex usage companion"}
     (APP / "Contents/Info.plist").write_bytes(plistlib.dumps(info))

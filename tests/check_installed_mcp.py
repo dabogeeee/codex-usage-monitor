@@ -41,7 +41,7 @@ def main():
         assert result["result"]["serverInfo"]["name"] == "codex-usage-monitor"
         proc.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
         proc.stdin.flush()
-        assert len(request("tools/list", {})["result"]["tools"]) == 2
+        assert len(request("tools/list", {})["result"]["tools"]) == 3
         assert "resources" not in result["result"]["capabilities"]
         opened = request("tools/call", {"name": "open_usage_dashboard", "arguments": {}})["result"]["structuredContent"]
         assert opened['native'] is True and 'url' not in opened
@@ -55,9 +55,12 @@ def main():
         assert data["account"]["buckets"]
         assert data["local"]["selectedThread"]["contextWindow"] > 0
         assert data["local"]["totals"]["today"] > 0
+        selection = request("tools/call", {"name": "get_desktop_selection", "arguments": {}})["result"]["structuredContent"]
+        assert isinstance(selection['status'], str)
         print(json.dumps({"installedMcp": True, "authPlan": data["account"]["planType"],
                           "officialUsageAvailable": data["account"]["usage"] is not None,
-                          "nativePanelOpened": True, "webResourcesRemoved": True, "localChatMetrics": True}))
+                          "nativePanelOpened": True, "webResourcesRemoved": True, "localChatMetrics": True,
+                          "desktopSelectionStatus": selection['status']}))
     finally:
         proc.stdin.close()
         try:
