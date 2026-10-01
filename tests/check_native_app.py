@@ -22,7 +22,7 @@ def main():
         picture = output / ("native-" + theme + ".png")
         for path in (status, picture):
             path.unlink(missing_ok=True)
-        process = subprocess.Popen([str(app), "--watch", "--no-desktop-read", "--recent-activity", "--theme", theme, "--status", str(status), "--render", str(picture)],
+        process = subprocess.Popen([str(app), "--watch", "--theme", theme, "--status", str(status), "--render", str(picture)],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         try:
             deadline = time.monotonic() + 28
@@ -46,7 +46,7 @@ def main():
             stop(process)
     status = output / "native-lifecycle-final.json"
     status.unlink(missing_ok=True)
-    process = subprocess.Popen([str(app), "--watch", "--no-desktop-read", "--recent-activity", "--lifecycle-test", "--status", str(status)],
+    process = subprocess.Popen([str(app), "--watch", "--lifecycle-test", "--status", str(status)],
                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     try:
         process.wait(timeout=10)
