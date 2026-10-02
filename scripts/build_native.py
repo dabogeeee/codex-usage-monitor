@@ -27,8 +27,8 @@ def main():
         shutil.copy2(PLUGIN / name, backend / name)
     info = {"CFBundleIdentifier": "com.codexusage.monitor", "CFBundleName": "CodexUsage",
             "CFBundleDisplayName": "Codex 用量面板", "CFBundleExecutable": "CodexUsage",
-            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.2.0",
-            "CFBundleVersion": "2", "LSMinimumSystemVersion": "14.0", "LSUIElement": True,
+            "CFBundlePackageType": "APPL", "CFBundleShortVersionString": "0.3.0",
+            "CFBundleVersion": "3", "LSMinimumSystemVersion": "14.0", "LSUIElement": True,
             "LSMultipleInstancesProhibited": True, "NSHighResolutionCapable": True,
             "NSHumanReadableCopyright": "Local Codex usage companion"}
     (APP / "Contents/Info.plist").write_bytes(plistlib.dumps(info))

@@ -76,6 +76,7 @@ func displayDate(_ date: Date) -> String {
     private var epoch = UUID()
     var requestGeneration: Int { generation }
 
+    var selectionLabel: String { selected.isEmpty ? "最近活动" : "手动选择" }
     var isRunning: Bool { process?.isRunning == true }
     func start() {
         guard !isRunning else { return }
@@ -120,7 +121,7 @@ func displayDate(_ date: Date) -> String {
         }
     }
     func select(_ value: String) {
-        selected = value; generation += 1; sendSelection()
+        selected = value; generation += 1; sendSelection(); onUpdate?()
     }
     func refresh() {
         if !isRunning { start() } else { sendSelection() }
@@ -348,10 +349,12 @@ final class UsagePanel: NSPanel {
     var statusPath: String?
     var renderPath: String?
     var themeMenu: NSMenu?
+    var infoMenu: NSMenu?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
         watching = args.contains("--watch")
+        UserDefaults.standard.removeObject(forKey: "menuDisplayMode")
         if let i = args.firstIndex(of: "--status"), args.indices.contains(i + 1) { statusPath = args[i + 1] }
         if let i = args.firstIndex(of: "--render"), args.indices.contains(i + 1) { renderPath = args[i + 1] }
         if let i = args.firstIndex(of: "--theme"), args.indices.contains(i + 1), ["system", "light", "dark"].contains(args[i + 1]) {
@@ -382,6 +385,10 @@ final class UsagePanel: NSPanel {
         show.target = self; menu.addItem(show)
         let refresh = NSMenuItem(title: "刷新用量", action: #selector(refreshFromMenu), keyEquivalent: "")
         refresh.target = self; menu.addItem(refresh)
+        let information = NSMenuItem(title: "用量与所选聊天", action: nil, keyEquivalent: "")
+        infoMenu = NSMenu(); information.submenu = infoMenu; menu.addItem(information)
+        let copy = NSMenuItem(title: "复制所选聊天 UUID", action: #selector(copyCurrentUUID), keyEquivalent: "")
+        copy.target = self; menu.addItem(copy)
         let themeItem = NSMenuItem(title: "主题", action: nil, keyEquivalent: "")
         themeMenu = NSMenu()
         for (name, value) in [("跟随系统", "system"), ("浅色", "light"), ("深色", "dark")] {
@@ -438,6 +445,18 @@ final class UsagePanel: NSPanel {
     }
     @objc func showFromMenu() { showPanel() }
     @objc func refreshFromMenu() { model.refresh() }
+    private var currentChat: Chat? {
+        guard let snapshot = model.snapshot, (snapshot.requestId ?? 0) == model.requestGeneration else { return nil }
+        return snapshot.local.selectedThread
+    }
+    private var currentUUID: String? {
+        guard model.isRunning else { return nil }
+        return currentChat?.id
+    }
+    @objc func copyCurrentUUID() {
+        guard let id = currentUUID else { return }
+        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(id, forType: .string)
+    }
     @objc func pauseUntilNextLaunch() {
         dismissed = true; panel.orderOut(nil); model.stop(); updateStatus()
     }
@@ -457,8 +476,23 @@ final class UsagePanel: NSPanel {
                 labels.append(name + " " + percentage(window.remainingPercent))
             }
         }
+        let quotaLabels = labels
         statusItem?.button?.title = labels.isEmpty ? " Codex" : " " + labels.joined(separator: " · ")
-        statusItem?.button?.toolTip = "Codex 用量 · 点击打开面板"
+        statusItem?.button?.toolTip = "Codex 用量\n" + model.selectionLabel + "\nUUID: " + (currentUUID ?? "未识别")
+        infoMenu?.removeAllItems()
+        var info = [model.selectionLabel,
+                    "UUID: " + (currentUUID ?? "未识别"),
+                    "缓存命中率: " + percentage(currentChat?.cacheHitPercent),
+                    "上下文占用估算: " + percentage(currentChat?.contextUsedPercent)]
+        let total = model.official ? model.snapshot?.account.usage?.totals : model.snapshot?.local.totals
+        info += [model.official ? "Token 来源：账号官方（可能延迟）" : "Token 来源：本机日志",
+                 "今日: " + fullNumber(total?.today), "本周: " + fullNumber(total?.week),
+                 "本月: " + fullNumber(total?.month), "累计: " + fullNumber(total?.all)]
+        info += quotaLabels.map { "剩余额度: " + $0 }
+        for text in info {
+            let item = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+            item.isEnabled = false; infoMenu?.addItem(item)
+        }
         writeStatus()
         if let path = renderPath, model.snapshot?.account.status == "ok" {
             renderPath = nil
@@ -472,7 +506,11 @@ final class UsagePanel: NSPanel {
                                   "pid": ProcessInfo.processInfo.processIdentifier, "bundleId": Bundle.main.bundleIdentifier ?? "",
                                   "accountStatus": model.snapshot?.account.status ?? "loading", "theme": model.theme,
                                   "effectiveAppearance": panel?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])?.rawValue ?? "",
-                                  "chatMetricsAvailable": model.snapshot?.local.selectedThread != nil]
+                                  "chatMetricsAvailable": currentChat != nil,
+                                  "selectionMode": model.selectionLabel]
+        data["menuDisplayMode"] = "quota"
+        data["menuBarTitle"] = statusItem?.button?.title ?? ""
+        data["menuInformationRows"] = infoMenu?.items.count ?? 0
         data.merge(extra) { _, new in new }
         if let bytes = try? JSONSerialization.data(withJSONObject: data, options: [.prettyPrinted, .sortedKeys]) {
             try? bytes.write(to: URL(fileURLWithPath: path), options: .atomic)
@@ -496,7 +534,11 @@ final class UsagePanel: NSPanel {
         let closeHides = !panel.isVisible && model.isRunning
         showPanel()
         let reopen = panel.isVisible && model.isRunning
+        let title = statusItem.button?.title ?? ""
+        let quotaMenu = !title.contains("缓存") && !title.contains("上下文")
+        let menuDetails = (infoMenu?.items.count ?? 0) >= 9
         writeStatus(extra: ["lifecyclePassed": hidden && shown && closeHides && reopen,
+                            "menuQuotaOnlyPassed": quotaMenu, "menuDetailsPassed": menuDetails,
                             "hideOnCodexExit": hidden, "showOnCodexLaunch": shown,
                             "closeHidesPanel": closeHides, "menuReopensPanel": reopen])
         model.onUpdate = nil
@@ -506,7 +548,9 @@ final class UsagePanel: NSPanel {
 
 @main struct CodexUsageApplication {
     static func main() {
-        if !CommandLine.arguments.contains("--lifecycle-test"), let ident = Bundle.main.bundleIdentifier {
+        let args = CommandLine.arguments
+        let diagnosticInstance = args.contains("--render") || args.contains("--lifecycle-test")
+        if !diagnosticInstance, let ident = Bundle.main.bundleIdentifier {
             let current = ProcessInfo.processInfo.processIdentifier
             if NSRunningApplication.runningApplications(withBundleIdentifier: ident).contains(where: { $0.processIdentifier != current }) {
                 DistributedNotificationCenter.default().postNotificationName(Notification.Name("com.codexusage.monitor.show"), object: nil, userInfo: nil, deliverImmediately: true)
