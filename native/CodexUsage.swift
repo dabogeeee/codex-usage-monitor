@@ -349,13 +349,12 @@ final class UsagePanel: NSPanel {
     var statusPath: String?
     var renderPath: String?
     var themeMenu: NSMenu?
-    var displayMenu: NSMenu?
     var infoMenu: NSMenu?
-    var menuDisplayMode = UserDefaults.standard.string(forKey: "menuDisplayMode") ?? "all"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
         watching = args.contains("--watch")
+        UserDefaults.standard.removeObject(forKey: "menuDisplayMode")
         if let i = args.firstIndex(of: "--status"), args.indices.contains(i + 1) { statusPath = args[i + 1] }
         if let i = args.firstIndex(of: "--render"), args.indices.contains(i + 1) { renderPath = args[i + 1] }
         if let i = args.firstIndex(of: "--theme"), args.indices.contains(i + 1), ["system", "light", "dark"].contains(args[i + 1]) {
@@ -390,13 +389,6 @@ final class UsagePanel: NSPanel {
         infoMenu = NSMenu(); information.submenu = infoMenu; menu.addItem(information)
         let copy = NSMenuItem(title: "复制所选聊天 UUID", action: #selector(copyCurrentUUID), keyEquivalent: "")
         copy.target = self; menu.addItem(copy)
-        let display = NSMenuItem(title: "菜单栏显示", action: nil, keyEquivalent: "")
-        displayMenu = NSMenu()
-        for (name, value) in [("余额", "quota"), ("缓存 / 上下文", "metrics"), ("全部", "all")] {
-            let item = NSMenuItem(title: name, action: #selector(selectMenuDisplay(_:)), keyEquivalent: "")
-            item.representedObject = value; item.target = self; displayMenu!.addItem(item)
-        }
-        display.submenu = displayMenu; menu.addItem(display)
         let themeItem = NSMenuItem(title: "主题", action: nil, keyEquivalent: "")
         themeMenu = NSMenu()
         for (name, value) in [("跟随系统", "system"), ("浅色", "light"), ("深色", "dark")] {
@@ -453,10 +445,6 @@ final class UsagePanel: NSPanel {
     }
     @objc func showFromMenu() { showPanel() }
     @objc func refreshFromMenu() { model.refresh() }
-    @objc func selectMenuDisplay(_ sender: NSMenuItem) {
-        guard let value = sender.representedObject as? String else { return }
-        menuDisplayMode = value; UserDefaults.standard.set(value, forKey: "menuDisplayMode"); updateStatus()
-    }
     private var currentChat: Chat? {
         guard let snapshot = model.snapshot, (snapshot.requestId ?? 0) == model.requestGeneration else { return nil }
         return snapshot.local.selectedThread
@@ -489,12 +477,8 @@ final class UsagePanel: NSPanel {
             }
         }
         let quotaLabels = labels
-        let metrics = [(model.selected.isEmpty ? "最近缓存 " : "所选缓存 ") + percentage(currentChat?.cacheHitPercent), "上下文 " + percentage(currentChat?.contextUsedPercent)]
-        if menuDisplayMode == "metrics" { labels = metrics }
-        else if menuDisplayMode == "all" { labels += metrics }
         statusItem?.button?.title = labels.isEmpty ? " Codex" : " " + labels.joined(separator: " · ")
         statusItem?.button?.toolTip = "Codex 用量\n" + model.selectionLabel + "\nUUID: " + (currentUUID ?? "未识别")
-        for item in displayMenu?.items ?? [] { item.state = (item.representedObject as? String) == menuDisplayMode ? .on : .off }
         infoMenu?.removeAllItems()
         var info = [model.selectionLabel,
                     "UUID: " + (currentUUID ?? "未识别"),
@@ -524,7 +508,7 @@ final class UsagePanel: NSPanel {
                                   "effectiveAppearance": panel?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])?.rawValue ?? "",
                                   "chatMetricsAvailable": currentChat != nil,
                                   "selectionMode": model.selectionLabel]
-        data["menuDisplayMode"] = menuDisplayMode
+        data["menuDisplayMode"] = "quota"
         data["menuBarTitle"] = statusItem?.button?.title ?? ""
         data["menuInformationRows"] = infoMenu?.items.count ?? 0
         data.merge(extra) { _, new in new }
@@ -550,14 +534,11 @@ final class UsagePanel: NSPanel {
         let closeHides = !panel.isVisible && model.isRunning
         showPanel()
         let reopen = panel.isVisible && model.isRunning
-        let previousDisplay = menuDisplayMode
-        menuDisplayMode = "metrics"; updateStatus()
-        let metricsMenu = statusItem.button?.title.contains("缓存") == true && statusItem.button?.title.contains("上下文") == true
-        menuDisplayMode = "all"; updateStatus()
-        let menuDetails = (infoMenu?.items.count ?? 0) >= 9 && (displayMenu?.items.count ?? 0) == 3
-        menuDisplayMode = previousDisplay; updateStatus()
+        let title = statusItem.button?.title ?? ""
+        let quotaMenu = !title.contains("缓存") && !title.contains("上下文")
+        let menuDetails = (infoMenu?.items.count ?? 0) >= 9
         writeStatus(extra: ["lifecyclePassed": hidden && shown && closeHides && reopen,
-                            "menuMetricsPassed": metricsMenu, "menuDetailsPassed": menuDetails,
+                            "menuQuotaOnlyPassed": quotaMenu, "menuDetailsPassed": menuDetails,
                             "hideOnCodexExit": hidden, "showOnCodexLaunch": shown,
                             "closeHidesPanel": closeHides, "menuReopensPanel": reopen])
         model.onUpdate = nil

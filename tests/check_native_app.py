@@ -53,9 +53,9 @@ def main():
         assert process.returncode == 0
         data = json.loads(status.read_text())
         assert data["lifecyclePassed"]
-        assert data["menuMetricsPassed"] and data["menuDetailsPassed"]
+        assert data["menuQuotaOnlyPassed"] and data["menuDetailsPassed"]
         results["lifecycle"] = {key: data[key] for key in ("showOnCodexLaunch", "hideOnCodexExit", "closeHidesPanel", "menuReopensPanel")}
-        results["menuBar"] = {"metrics": data["menuMetricsPassed"], "details": data["menuDetailsPassed"]}
+        results["menuBar"] = {"quotaOnly": data["menuQuotaOnlyPassed"], "details": data["menuDetailsPassed"]}
     finally:
         stop(process)
     print(json.dumps(results))

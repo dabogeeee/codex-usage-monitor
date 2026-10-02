@@ -8,7 +8,7 @@
       "interface": {
         "displayName": "Codex 用量面板",
         "shortDescription": "查看 tokens、剩余额度和聊天上下文",
-        "longDescription": "macOS 原生悬浮面板与菜单栏用量，随 Codex 启动自动打开。支持每日、每周、每月、累计 token；Plus 显示 5 小时及一周剩余额度，Pro 默认显示一周。菜单栏可选择余额、缓存与上下文；聊天指标来自最近活动或手动选择，不读取桌面界面。",
+        "longDescription": "macOS 原生悬浮面板与菜单栏余额，随 Codex 启动自动打开。支持每日、每周、每月、累计 token；Plus 显示 5 小时及一周剩余额度，Pro 默认显示一周。菜单栏顶部仅显示余额，缓存与上下文在面板及展开菜单中查看；聊天指标来自最近活动或手动选择，不读取桌面界面。",
         "category": "Productivity",
         "capabilities": [
           "Read"
